@@ -1,19 +1,21 @@
 import contextlib
 
-from fastapi import FastAPI, WebSocket, Request, status, HTTPException, Depends
+from fastapi import FastAPI, WebSocket, Request, status, HTTPException, Depends, Path
 from fastapi.responses import HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.utils.auth import AuthForm, auth_schema
-from app.utils.generate_token import generate_token
+from app.utils.auth import AuthForm
 from app.models import User
 from app.database import Session_DP, session_manager
 from app.config import DB_URL, SESSION_MIDDLEWARE_SECRET_KEY
+from app.connections import chat_manager, Chat
+# from app.frontend.chat import html1, html2
 
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     session_manager.init(DB_URL)
+    # del request.session['access_token']
 
     yield 
     await session_manager.close()
@@ -21,7 +23,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=SESSION_MIDDLEWARE_SECRET_KEY)
-active_connections = []
 
 
 # AUTHORIZE ===============================
@@ -81,25 +82,56 @@ async def authorize(session: Session_DP, request: Request, form_data: AuthForm =
     }
 
 
-@app.websocket('/chat_ws')
+@app.websocket('/chat_ws/{chat_id}')
 async def chat_websocket(websocket: WebSocket):
     await websocket.accept()
-    active_connections.append(websocket)
 
     try:
         while True:
             receive_text = await websocket.receive_text()
+            print(receive_text)
 
-            for connection in active_connections:
-                if connection != websocket:
-                    await connection.send_text(receive_text)
+            for connection in chat_manager.chats.values():
+                print(connection)
+                await connection.send_text(receive_text)
+                
     except Exception as _:
         print('Something went wrong')
 
 
 @app.get('/')
-async def chat(user: str = Depends(check_user)):
-    with open('app/index.html', 'r') as file:
+async def index(user: str = Depends(check_user)):
+    with open('app/frontend/index.html', 'r') as file:
         html = file.read()
 
     return HTMLResponse(html)
+
+
+@app.get('/chat/{chat_id}')
+async def chat(chat_id: int = Path(...), user: str = Depends(check_user)):
+    print(chat_id)
+    with open('app/frontend/chat.html', 'r') as file:
+        html = file.read()
+
+    return HTMLResponse(html)
+
+
+@app.post('/create_new_chat')
+async def create_new_chat(user: str = Depends(check_user)):
+    chat = chat_manager.create()
+    # print('HERE')
+
+    return {'chat_id': chat.chat_id}
+
+
+@app.get('/check_user')
+async def check_user(session: Session_DP, request: Request):
+    user = await User.get_by_token(session=session, token=request.session.get('access_token'))
+
+    return user
+
+@app.get('/log_out')
+async def log_out(request: Request):
+    del request.session['access_token']
+
+    return 200

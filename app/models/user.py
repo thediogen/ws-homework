@@ -21,6 +21,14 @@ class User(Base):
         return user
     
     @classmethod
+    async def get_by_token(cls, session: Session_DP, token: str):
+        stmt = select(User).where(User.session_token == token)
+        query = await session.execute(stmt)
+        user = query.scalars().all()
+
+        return user
+    
+    @classmethod
     async def create(cls, session: Session_DP, form_data):
         new_user = cls(
             name=form_data.username,

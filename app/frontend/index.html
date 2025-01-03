@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat</title>
+    <!-- <script type="module" src="./main.js"></script> -->
+</head>
+<body>
+    <!-- <h1>Connect to chat</h1>
+    <input type="number" placeholder="Enter ID of chat you want to connect" id="chat_id">
+    <button onclick="connectToChat()">Connect</button> -->
+    <h2>You can create new chat</h2>
+    <button onclick="createNewChat()">Create new chat</button>
+
+    <script>
+        async function createNewChat(){
+            fetch('http://127.0.0.1:8000/create_new_chat', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    let chat_id = console.log(data.chat_id);
+                    localStorage.setItem('current_chat_id', data.chat_id)
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                });
+            }
+
+            async function connectToChat() {
+                fetch(`http://127.0.0.1:8000/chat/${localStorage.getItem('current_chat_id')}`, {method: 'GET'})
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data.chat_id);
+                    })
+                    .catch(error => {
+                        console.error("Error:", error);
+                    });
+            }
+    </script>
+</body>
+</html>
